@@ -1650,6 +1650,10 @@ final class Model: NSObject, ObservableObject, @unchecked Sendable {
         srtlaBatchSend = database.debug.srtlaBatchSend!
     }
 
+    func setCameraControlsEnabled() {
+        media.setCameraControls(enabled: database.debug.cameraControlsEnabled!)
+    }
+
     private func setupSampleBufferReceiver() {
         sampleBufferReceiver.delegate = self
         sampleBufferReceiver.start(appGroup: moblinAppGroup)
@@ -4109,6 +4113,7 @@ final class Model: NSObject, ObservableObject, @unchecked Sendable {
         updateMute()
         streamPreviewView.attachStream(media.getNetStream())
         setLowFpsImage()
+        updateCameraControls()
     }
 
     private func isTimecodesEnabled() -> Bool {
@@ -6440,6 +6445,10 @@ final class Model: NSObject, ObservableObject, @unchecked Sendable {
         }
         updateTextEffects(now: .now, timestamp: .now)
         forceUpdateTextEffects()
+    }
+
+    private func updateCameraControls() {
+        media.setCameraControls(enabled: database.debug.cameraControlsEnabled!)
     }
 
     func setCameraZoomPreset(id: UUID) {
@@ -10099,10 +10108,6 @@ extension Model: FaxReceiverDelegate {
 }
 
 extension Model: MediaDelegate {
-    func getModel() -> Model {
-        self
-    }
-    
     func mediaOnSrtConnected() {
         handleSrtConnected()
     }
@@ -10157,6 +10162,16 @@ extension Model: MediaDelegate {
 
     func mediaStrlaRelayDestinationAddress(address: String, port: UInt16) {
         srtlaRelayServer?.startTunnels(address: address, port: port)
+    }
+
+    func mediaSetZoomX(x: Float) {
+        if let x = setCameraZoomX(x: x) {
+            setZoomX(x: x)
+        }
+    }
+
+    func mediaSetExposureBias(bias: Float) {
+        setExposureBias(bias: bias)
     }
 }
 
@@ -10250,4 +10265,3 @@ extension Model: SrtlaRelayClientDelegate {
         return Int(100 * batteryLevel)
     }
 }
-

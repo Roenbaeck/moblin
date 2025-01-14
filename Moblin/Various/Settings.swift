@@ -1833,6 +1833,7 @@ class SettingsDebug: Codable {
     var timecodesEnabled: Bool? = false
     var dnsLookupStrategy: SettingsDnsLookupStrategy? = .system
     var srtlaBatchSend: Bool? = false
+    var cameraControlsEnabled: Bool? = false
 }
 
 class SettingsRtmpServerStream: Codable, Identifiable {
@@ -4462,6 +4463,10 @@ final class Settings {
         }
         if realDatabase.chat.bottom == nil {
             realDatabase.chat.bottom = 0.0
+            store()
+        }
+        if realDatabase.debug.cameraControlsEnabled == nil {
+            realDatabase.debug.cameraControlsEnabled = false
             store()
         }
     }

@@ -236,6 +236,7 @@ final class VideoUnit: NSObject {
     private var pool: CVPixelBufferPool?
     private var poolColorSpace: CGColorSpace?
     private var poolFormatDescriptionExtension: CFDictionary?
+    private var cameraControlsEnabled = false
 
     override init() {
         if let metalDevice = MTLCreateSystemDefaultDevice() {
@@ -275,6 +276,11 @@ final class VideoUnit: NSObject {
     func stopRunning() {
         removeSessionObservers()
         session.stopRunning()
+    }
+
+    func setCameraControl(enabled: Bool) {
+        cameraControlsEnabled = enabled
+        updateCameraControls()
     }
 
     func getEncoders() -> [VideoCodec] {
@@ -328,9 +334,7 @@ final class VideoUnit: NSObject {
         }
         setDeviceFormat(frameRate: frameRate, colorSpace: colorSpace)
         output?.setSampleBufferDelegate(self, queue: lockQueue)
-        if #available(iOS 18.0, *) {
-            addCameraControls()
-        }
+        updateCameraControls()
     }
 
     func registerEffect(_ effect: VideoEffect) {
@@ -361,6 +365,10 @@ final class VideoUnit: NSObject {
         lockQueue.async {
             self.setLowFpsImageInner(fps: fps)
         }
+    }
+
+    func setCameraControls(enabled: Bool) {
+        cameraControlsEnabled = enabled
     }
 
     func takeSnapshot(age: Float, onComplete: @escaping (UIImage, UIImage?) -> Void) {
@@ -1355,6 +1363,45 @@ final class VideoUnit: NSObject {
             isFirstAfterAttach = false
         }
     }
+
+    private func updateCameraControls() {
+        guard #available(iOS 18, *) else {
+            return
+        }
+        if session.supportsControls {
+            removeCameraControls()
+            addCameraControls()
+        }
+    }
+
+    @available(iOS 18.0, *)
+    func addCameraControls() {
+        guard cameraControlsEnabled, let device else {
+            return
+        }
+        let zoomSlider = AVCaptureSystemZoomSlider(device: device) { [weak self] zoomFactor in
+            let x = Float(device.displayVideoZoomFactorMultiplier * zoomFactor)
+            self?.mixer?.delegate?.mixerSetZoomX(x: x)
+        }
+        if session.canAddControl(zoomSlider) {
+            session.addControl(zoomSlider)
+        }
+        let exposureBiasSlider = AVCaptureSystemExposureBiasSlider(device: device) { [weak self] exposureBias in
+            self?.mixer?.delegate?.mixerSetExposureBias(bias: exposureBias)
+        }
+        if session.canAddControl(exposureBiasSlider) {
+            session.addControl(exposureBiasSlider)
+        }
+        session.setControlsDelegate(self, queue: netStreamLockQueue)
+    }
+
+    @available(iOS 18.0, *)
+    func removeCameraControls() {
+        for control in session.controls {
+            session.removeControl(control)
+        }
+        session.setControlsDelegate(nil, queue: nil)
+    }
 }
 
 extension VideoUnit: AVCaptureVideoDataOutputSampleBufferDelegate {
@@ -1383,52 +1430,13 @@ private func createBlackImage(width: Double, height: Double) -> CIImage {
     return image
 }
 
-
-@available(iOS 18.0, *)
-private let cameraControlQueue = DispatchQueue(label: "com.eerimoq.cameraControl")
-
 @available(iOS 18.0, *)
 extension VideoUnit: AVCaptureSessionControlsDelegate {
-    // minimal AVCaptureSessionControlsDelegate protocol compliance
-    @objc func sessionControlsDidBecomeActive(_ session: AVCaptureSession) { return }
-    @objc func sessionControlsWillEnterFullscreenAppearance(_ session: AVCaptureSession) { return }
-    @objc func sessionControlsWillExitFullscreenAppearance(_ session: AVCaptureSession) { return }
-    @objc func sessionControlsDidBecomeInactive(_ session: AVCaptureSession) { return }
-    
-    func addCameraControls() {
-        print("Adding camera controls")
-        if session.supportsControls {
-            guard let device else {
-                print("Capture device not configured yet")
-                return
-            }
-            let zoomSlider = AVCaptureSystemZoomSlider(device: device) { zoomFactor in
-                let displayZoom = Float(device.displayVideoZoomFactorMultiplier * zoomFactor)
-                guard let model = self.mixer?.delegate?.getNetStreamDelegate()?.getMediaDelegate()?.getModel() else {
-                    return
-                }
-                print("Zooming to \(displayZoom)")
-                let x = model.setCameraZoomX(x: displayZoom) ?? 1.0
-                model.setZoomX(x: x)
-            }
-            if session.canAddControl(zoomSlider) {
-                session.addControl(zoomSlider)
-            }
-            let exposureBiasSlider = AVCaptureSystemExposureBiasSlider(device: device) { exposureBias in
-                guard let model = self.mixer?.delegate?.getNetStreamDelegate()?.getMediaDelegate()?.getModel() else {
-                    return
-                }
-                print("Setting exposure bias to \(exposureBias)")
-                model.setExposureBias(bias: exposureBias)
-            }
-            if session.canAddControl(exposureBiasSlider) {
-                session.addControl(exposureBiasSlider)
-            }
-            session.setControlsDelegate(self, queue: cameraControlQueue)
-            print("Camera controls added")
-        }
-        else {
-            print("Session does not support camera controls")
-        }
-    }
+    func sessionControlsDidBecomeActive(_: AVCaptureSession) {}
+
+    func sessionControlsWillEnterFullscreenAppearance(_: AVCaptureSession) {}
+
+    func sessionControlsWillExitFullscreenAppearance(_: AVCaptureSession) {}
+
+    func sessionControlsDidBecomeInactive(_: AVCaptureSession) {}
 }
