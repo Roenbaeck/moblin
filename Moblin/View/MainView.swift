@@ -558,7 +558,7 @@ struct MainView: View {
                 }
             if #available(iOS 18.0, *) {
                 all
-                    .onCameraCaptureEvent { event in
+                    .onCameraCaptureEvent(isEnabled: model.cameraControlEnabled) { event in
                         if event.phase == .ended {
                             logger.debug("User pressed the camera button")
                         }

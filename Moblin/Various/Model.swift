@@ -673,6 +673,8 @@ final class Model: NSObject, ObservableObject, @unchecked Sendable {
     private var srtlaRelayServer: SrtlaRelayServer?
     private var srtlaRelayClient: SrtlaRelayClient?
 
+    @Published var cameraControlEnabled = false
+
     override init() {
         super.init()
         showLoadSettingsFailed = !settings.load()
@@ -1651,6 +1653,7 @@ final class Model: NSObject, ObservableObject, @unchecked Sendable {
     }
 
     func setCameraControlsEnabled() {
+        cameraControlEnabled = database.debug.cameraControlsEnabled!
         media.setCameraControls(enabled: database.debug.cameraControlsEnabled!)
     }
 
