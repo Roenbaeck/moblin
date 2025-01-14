@@ -529,7 +529,7 @@ struct MainView: View {
         }
         .persistentSystemOverlays(.hidden)
         if #available(iOS 17.0, *) {
-            all
+            let all = all
                 .focusable()
                 .focused($focused)
                 .onKeyPress { press in
@@ -556,6 +556,16 @@ struct MainView: View {
                 .onAppear {
                     focused = true
                 }
+            if #available(iOS 18.0, *) {
+                all
+                    .onCameraCaptureEvent { event in
+                        if event.phase == .ended {
+                            logger.debug("User pressed the camera button")
+                        }
+                    }
+            } else {
+                all
+            }
         } else {
             all
         }

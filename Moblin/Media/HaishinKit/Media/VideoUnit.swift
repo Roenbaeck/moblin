@@ -280,7 +280,9 @@ final class VideoUnit: NSObject {
 
     func setCameraControl(enabled: Bool) {
         cameraControlsEnabled = enabled
+        session.beginConfiguration()
         updateCameraControls()
+        session.commitConfiguration()
     }
 
     func getEncoders() -> [VideoCodec] {
